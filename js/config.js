@@ -120,6 +120,8 @@ window.CONFIG = {
     glitchLife: [40, 180],     // 사각형 하나가 떠 있는 시간 (ms)
     glitchCount: [1, 6],       // 한 번에 나오는 사각형 개수
     reveal: true,
-    pageSnap: true
+    pageSnap: true,
+    // 모바일 화면 넘김 감도: speed(px/ms) 이상 빠르게, distance(px) 이상 밀어야 넘어감. 숫자가 클수록 둔감
+    swipe: { speed: 0.5, distance: 40 }
   }
 };
