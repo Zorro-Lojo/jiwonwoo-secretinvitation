@@ -16,6 +16,26 @@
     });
   };
 
+  /* ---------- 공통: 이미지 확장자 자동 탐색 ----------
+     src 에 확장자가 없거나 틀려도 jpg/jpeg/png/webp 순서로 시도. 전부 없으면 onEmpty() */
+  const IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'JPG', 'JPEG', 'PNG', 'webp'];
+  function imageCandidates(src) {
+    const m = src.match(/^(.*?)(?:\.([a-zA-Z0-9]+))?$/);
+    const base = m[1], ext = m[2];
+    const exts = ext ? [ext].concat(IMAGE_EXTS.filter(e => e !== ext)) : IMAGE_EXTS;
+    return exts.map(e => base + '.' + e);
+  }
+  function loadImage(img, src, onEmpty) {
+    const candidates = imageCandidates(src);
+    let tryIdx = 0;
+    img.addEventListener('error', () => {
+      tryIdx++;
+      if (tryIdx < candidates.length) { img.src = candidates[tryIdx]; return; }
+      onEmpty();
+    });
+    img.src = candidates[0];
+  }
+
   /* ---------- 고인 표시 아이콘 ---------- */
   const RIBBON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c-2.2 0-3.5 1.6-3.5 3.4 0 2.6 2 4.6 3.5 6.6 1.5-2 3.5-4 3.5-6.6C15.5 4.6 14.2 3 12 3z"/><path d="M12 13l-5 8M12 13l5 8"/></svg>';
   function deceasedMark() {
@@ -45,6 +65,10 @@
 
   /* ---------- 3. 혼주 ---------- */
   function renderFamily() {
+    const f = C.family;
+    if (f.image) { const img = el('img'); img.src = f.image; img.alt = ''; $('familyArt').appendChild(img); }
+    else $('familyArt').remove();
+    setLines($('familyText'), f.text || '');
     const rows = $('familyRows');
     [C.groom, C.bride].forEach(p => {
       const row = el('div', 'row');
@@ -60,65 +84,59 @@
       );
       rows.appendChild(row);
     });
+  }
 
-    const list = $('contactList');
-    [C.groom, C.bride].forEach(p => {
-      const row = el('div', 'contact');
-      const left = el('div');
-      left.append(el('small', null, p.role), el('span', null, p.name));
-      if (p.tel) left.appendChild(el('small', null, p.tel));
-      row.appendChild(left);
-      if (p.tel) {
-        const a = el('a', null, '전화'); a.href = 'tel:' + p.tel.replace(/[^0-9+]/g, '');
-        row.appendChild(a);
-      } else {
-        row.appendChild(el('small', null, '연락처 미등록'));
-      }
-      list.appendChild(row);
+  /* ---------- 4·5. 남편 / 아내 소개 (좌우 슬라이드) ---------- */
+  function renderProfiles() {
+    document.querySelectorAll('[data-profile]').forEach(sec => {
+      const p = C.profiles[Number(sec.dataset.profile)];
+      if (!p) { sec.remove(); return; }
+      sec.querySelector('.eng-title').textContent = p.engTitle;
+      sec.querySelector('.ko-title').textContent = p.title;
+      setLines(sec.querySelector('.body'), p.intro);
+
+      const slider = sec.querySelector('.slider');
+      const count = sec.querySelector('.slider-count');
+      p.images.forEach((src, i) => {
+        const cell = el('div', 's-item');
+        const img = el('img'); img.alt = p.title + ' 사진 ' + (i + 1); img.draggable = false;
+        loadImage(img, src, () => {
+          img.remove(); cell.classList.add('empty');
+          cell.appendChild(el('span', null, String(i + 1).padStart(2, '0')));
+        });
+        cell.appendChild(img);
+        slider.appendChild(cell);
+      });
+
+      const cells = slider.children;
+      const step = () => cells.length > 1 ? cells[1].offsetLeft - cells[0].offsetLeft : slider.clientWidth;
+      const current = () => Math.max(0, Math.min(cells.length - 1, Math.round(slider.scrollLeft / step())));
+      const update = () => { count.textContent = (current() + 1) + ' / ' + cells.length; };
+      const go = d => slider.scrollTo({ left: (current() + d) * step(), behavior: 'smooth' });
+      slider.addEventListener('scroll', update, { passive: true });
+      sec.querySelector('.s-nav.prev').addEventListener('click', () => go(-1));
+      sec.querySelector('.s-nav.next').addEventListener('click', () => go(1));
+      update();
     });
-    $('btnContact').addEventListener('click', () => openModal('modalContact'));
   }
 
-  /* ---------- 4. 캘린더 + 카운트다운 ---------- */
-  function renderCalendar() {
-    const w = C.wedding;
-    $('calDateNum').textContent = w.dateNum;
-    $('calDateKo').textContent = w.dateKo;
-    const cal = $('cal');
-    ['일', '월', '화', '수', '목', '금', '토'].forEach((d, i) => cal.appendChild(el('div', 'h' + (i === 0 ? ' red' : ''), d)));
-    const first = new Date(w.year, w.month - 1, 1).getDay();
-    const last = new Date(w.year, w.month, 0).getDate();
-    for (let i = 0; i < first; i++) cal.appendChild(el('div'));
-    for (let d = 1; d <= last; d++) {
-      const dow = (first + d - 1) % 7;
-      let cls = 'd';
-      if (d === w.day) cls += ' dday';
-      else if (dow === 0 || (w.holidays || []).includes(d)) cls += ' red';
-      cal.appendChild(el('div', cls, d));
-    }
+  /* ---------- 6. 공지 ---------- */
+  function renderEvent() {
+    const e = C.event;
+    $('evEng').textContent = e.engTitle;
+    $('evKo').textContent = e.koTitle;
+    const list = $('evList');
+    e.items.forEach(t => { const d = el('div', 'ev-item'); setLines(d, t); list.appendChild(d); });
+    if (e.coord) list.appendChild(el('div', 'ev-coord', e.coord));
 
-    const target = new Date(w.at).getTime();
-    const pad = n => String(n).padStart(2, '0');
-    const tick = () => {
-      let diff = Math.max(0, Math.floor((target - Date.now()) / 1000));
-      const d = Math.floor(diff / 86400); diff -= d * 86400;
-      const h = Math.floor(diff / 3600); diff -= h * 3600;
-      const m = Math.floor(diff / 60); const s = diff - m * 60;
-      $('cdD').textContent = d; $('cdH').textContent = pad(h);
-      $('cdM').textContent = pad(m); $('cdS').textContent = pad(s);
-    };
-    tick(); setInterval(tick, 1000);
+    const map = $('evMap');
+    const img = el('img'); img.alt = '맵 사진';
+    loadImage(img, e.map, () => { img.remove(); map.appendChild(el('span', null, e.mapEmpty)); });
+    map.appendChild(img);
+    setLines($('evNote'), e.mapNote || '');
   }
 
-  /* ---------- 5. 갤러리 ---------- */
-  const IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'JPG', 'JPEG', 'PNG', 'webp'];
-  function imageCandidates(src) {
-    const m = src.match(/^(.*?)(?:\.([a-zA-Z0-9]+))?$/);
-    const base = m[1], ext = m[2];
-    const exts = ext ? [ext].concat(IMAGE_EXTS.filter(e => e !== ext)) : IMAGE_EXTS;
-    return exts.map(e => base + '.' + e);
-  }
-
+  /* ---------- 7. 갤러리 ---------- */
   function renderGallery() {
     const g = C.gallery;
     $('galEng').textContent = g.engTitle;
@@ -131,18 +149,13 @@
       const cell = el('button', 'g-item'); cell.type = 'button';
       cell.setAttribute('aria-label', '사진 ' + (i + 1));
       const img = el('img'); img.alt = '갤러리 사진 ' + (i + 1); img.loading = 'lazy';
-      const candidates = imageCandidates(src);
-      let tryIdx = 0;
       img.addEventListener('load', () => {
         loaded.push({ i, src: img.src }); loaded.sort((a, b) => a.i - b.i);
       });
-      img.addEventListener('error', () => {
-        tryIdx++;
-        if (tryIdx < candidates.length) { img.src = candidates[tryIdx]; return; }
+      loadImage(img, src, () => {
         cell.classList.add('empty'); cell.disabled = true; img.remove();
         cell.appendChild(el('span', null, String(i + 1).padStart(2, '0')));
       });
-      img.src = candidates[0];
       cell.appendChild(img);
       cell.addEventListener('click', () => {
         const idx = loaded.findIndex(x => x.i === i);
@@ -227,145 +240,16 @@
     });
   }
 
-  /* ---------- 6. 방명록 ---------- */
-  function renderGuestbook() {
-    const g = C.guestbook;
-    const store = window.GuestbookStore;
-    $('gbEng').textContent = g.engTitle;
-    $('gbKo').textContent = g.koTitle;
-    setLines($('gbLead'), g.lead);
-    setLines($('cfMsg'), g.confirmText);
-
-    const list = $('gbList');
-    const load = async () => {
-      let items;
-      try { items = await store.listPublic(); } catch (e) { return; }
-      list.textContent = '';
-      items.forEach(it => {
-        const box = el('div', 'gb-item');
-        const who = el('div', 'who');
-        who.append(el('span', null, it.name), el('time', null, it.date));
-        box.append(who, el('div', 'msg', it.msg));
-        list.appendChild(box);
-      });
-      buildSnow();
-    };
-    load();
-
-    const form = $('gbForm');
-    const yes = $('cfYes');
-    const isPublic = () => form.elements.gbVis.value === 'public';
-    const values = () => ({ name: $('gbName').value.trim(), msg: $('gbMsg').value.trim(), pub: isPublic() });
-
-    const updateHelp = () => { $('gbVisHelp').textContent = isPublic() ? g.publicHelp : g.privateHelp; };
-    form.querySelectorAll('input[name="gbVis"]').forEach(r => r.addEventListener('change', updateHelp));
-    form.addEventListener('reset', () => setTimeout(updateHelp));
-    updateHelp();
-
-    $('btnWrite').addEventListener('click', () => { openModal('modalWrite'); $('gbName').focus(); });
-
-    form.addEventListener('submit', e => {
-      e.preventDefault();
-      const v = values();
-      if (!v.name || !v.msg) return;
-      closeModals(); openModal('modalConfirm');
-    });
-
-    $('cfNo').addEventListener('click', () => { closeModals(); openModal('modalWrite'); });
-
-    yes.addEventListener('click', async () => {
-      const v = values();
-      if (!v.name || !v.msg || yes.disabled) return;
-      yes.disabled = true;
-      try {
-        await store.add(v.name, v.msg, v.pub);
-        form.reset(); closeModals(); toast(g.doneText);
-        if (v.pub) load();
-      } catch (err) {
-        closeModals(); openModal('modalWrite');
-        toast('전송에 실패했습니다. 잠시 후 다시 시도해 주세요.');
-      } finally {
-        yes.disabled = false;
-      }
-    });
-
-    $('btnShare').addEventListener('click', async () => {
-      try { await navigator.clipboard.writeText(location.href); toast('링크가 복사되었습니다.'); }
-      catch (e) { toast('복사에 실패했습니다. 주소창의 링크를 복사해 주세요.'); }
-    });
-
+  /* ---------- 8. 탈출 ---------- */
+  function renderEscape() {
+    const e = C.escape;
+    $('esEng').textContent = e.engTitle;
+    $('esKo').textContent = e.koTitle;
+    setLines($('esLead'), e.lead);
+    const a = $('btnEscape');
+    a.textContent = e.button;
+    a.href = e.url;
     $('foot').textContent = C.footer;
-  }
-
-  /* ---------- 효과: 눈 ---------- */
-  function buildSnow() {
-    const box = $('snow');
-    box.textContent = '';
-    if (!C.effects.snow) return;
-    const h = document.querySelector('.card').offsetHeight;
-    const count = Math.round(h / C.effects.snowGap);
-    const imgs = C.effects.snowImages;
-    const [minDur, maxDur] = C.effects.snowDuration;
-    const totalWeight = imgs.reduce((sum, it) => sum + it.weight, 0);
-    const pick = () => {
-      let r = Math.random() * totalWeight;
-      for (const it of imgs) { r -= it.weight; if (r < 0) return it; }
-      return imgs[imgs.length - 1];
-    };
-    const tints = buildSnowTints();
-    for (let i = 0; i < count; i++) {
-      const s = el('img');
-      const it = pick();
-      const id = tints[Math.floor(Math.random() * tints.length)];
-      s.style.filter = 'url(#' + id + ') drop-shadow(0 0 1px rgba(190, 210, 235, .6))';
-      s.src = it.src;
-      s.alt = ''; s.draggable = false;
-      const [minSize, maxSize] = it.size;
-      const size = minSize + Math.random() * (maxSize - minSize);
-      const dur = minDur + Math.random() * (maxDur - minDur);
-      s.style.left = (Math.random() * 100) + '%';
-      s.style.width = s.style.height = size.toFixed(1) + 'px';
-      s.style.opacity = (0.65 + Math.random() * 0.35).toFixed(2);
-      s.style.setProperty('--dist', (h + 60) + 'px');
-      s.style.setProperty('--drift', (Math.random() * 60 - 30) + 'px');
-      s.style.animationDuration = dur + 's';
-      s.style.animationDelay = (-Math.random() * dur) + 's';
-      box.appendChild(s);
-    }
-  }
-
-  /* 눈송이 색: from ~ to 사이를 steps 단계로 나눈 SVG 색 필터를 만들어 id 목록 반환.
-     (원본 SVG 색은 무시하고 모양만 사용. mask-image 는 file:// 에서 막혀서 필터 사용) */
-  function buildSnowTints() {
-    const c = C.effects.snowColor;
-    let svg = $('snowTints');
-    if (!svg) {
-      const NS = 'http://www.w3.org/2000/svg';
-      svg = document.createElementNS(NS, 'svg');
-      svg.id = 'snowTints';
-      svg.setAttribute('width', '0'); svg.setAttribute('height', '0');
-      svg.setAttribute('aria-hidden', 'true');
-      svg.style.position = 'absolute';
-      const steps = Math.max(2, c.steps);
-      for (let n = 0; n < steps; n++) {
-        const t = n / (steps - 1);
-        const rgb = [0, 1, 2].map(k => (c.from[k] + (c.to[k] - c.from[k]) * t) / 255);
-        const f = document.createElementNS(NS, 'filter');
-        f.id = 'snowTint' + n;
-        f.setAttribute('color-interpolation-filters', 'sRGB');
-        const m = document.createElementNS(NS, 'feColorMatrix');
-        m.setAttribute('type', 'matrix');
-        m.setAttribute('values',
-          '0 0 0 0 ' + rgb[0].toFixed(4) + ' ' +
-          '0 0 0 0 ' + rgb[1].toFixed(4) + ' ' +
-          '0 0 0 0 ' + rgb[2].toFixed(4) + ' ' +
-          '0 0 0 1 0');
-        f.appendChild(m);
-        svg.appendChild(f);
-      }
-      document.body.appendChild(svg);
-    }
-    return Array.from(svg.querySelectorAll('filter'), f => f.id);
   }
 
   /* ---------- 효과: 페이지 스냅 / 페이드 ---------- */
@@ -383,7 +267,7 @@
     document.querySelectorAll('.card > section').forEach(s => io.observe(s));
   }
 
-  /* ---------- 공통: 모달 / 토스트 ---------- */
+  /* ---------- 공통: 모달 ---------- */
   function openModal(id) { $(id).classList.add('open'); }
   function closeModals() { document.querySelectorAll('.modal').forEach(m => m.classList.remove('open')); }
   function initModals() {
@@ -391,24 +275,15 @@
     document.querySelectorAll('.modal').forEach(m => m.addEventListener('click', e => { if (e.target === m) closeModals(); }));
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModals(); });
   }
-  let toastTimer;
-  function toast(msg) {
-    const t = $('toast');
-    t.textContent = msg; t.classList.add('on');
-    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('on'), 2000);
-  }
 
   /* ---------- 실행 ---------- */
   initModals();
   renderCover();
   renderInvitation();
   renderFamily();
-  renderCalendar();
+  renderProfiles();
+  renderEvent();
   renderGallery();
-  renderGuestbook();
+  renderEscape();
   initReveal();
-  buildSnow();
-  let rt;
-  window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(buildSnow, 300); });
-  window.addEventListener('load', buildSnow);
 })();
