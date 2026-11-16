@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>서원우 ♥ 박지원 결혼합니다.</title>
+<meta name="description" content="2027년 1월 17일">
+<meta property="og:type" content="website">
+<meta property="og:title" content="서원우 ♥ 박지원 결혼합니다.">
+<meta property="og:description" content="2027년 1월 17일">
+<meta property="og:url" content="https://jiwonwoo-marriage-notice.netlify.app/">
+<meta property="og:image" content="https://jiwonwoo-marriage-notice.netlify.app/images/og-thumbnail.jpg">
+<meta property="og:image:width" content="800">
+<meta property="og:image:height" content="400">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Noto+Serif:wght@400&family=Crimson+Pro:wght@400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<main class="card">
+  <div class="snow" id="snow" aria-hidden="true"></div>
+
+  <!-- 1. 커버 -->
+  <section class="cover" id="sec-cover">
+    <div class="cover-art reveal" id="coverArt"></div>
+    <p class="names reveal" id="coverNames"></p>
+    <p class="date reveal" id="coverDate"></p>
+  </section>
+
+  <!-- 2. 인사말 -->
+  <section class="invitation" id="sec-invitation">
+    <div class="reveal">
+      <div class="eng-title" id="invEng"></div>
+      <div class="ko-title" id="invKo"></div>
+    </div>
+    <div class="body reveal" id="invBody"></div>
+  </section>
+
+  <!-- 3. 혼주 -->
+  <section class="family" id="sec-family">
+    <div class="reveal">
+      <div id="familyRows"></div>
+      <button class="btn" id="btnContact" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>
+        <span>연락하기</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- 4. 캘린더 + 카운트다운 -->
+  <section class="calendar" id="sec-calendar">
+    <div class="reveal">
+      <div class="date-num" id="calDateNum"></div>
+      <div class="date-ko" id="calDateKo"></div>
+      <div class="cal-grid" id="cal"></div>
+    </div>
+    <div class="countdown reveal">
+      <div class="unit"><div class="desc">DAYS</div><span class="num" id="cdD">0</span></div>
+      <span class="sep">:</span>
+      <div class="unit"><div class="desc">HOUR</div><span class="num" id="cdH">00</span></div>
+      <span class="sep">:</span>
+      <div class="unit"><div class="desc">MIN</div><span class="num" id="cdM">00</span></div>
+      <span class="sep">:</span>
+      <div class="unit"><div class="desc">SEC</div><span class="num" id="cdS">00</span></div>
+    </div>
+  </section>
+
+  <!-- 5. 갤러리 -->
+  <section class="gallery" id="sec-gallery">
+    <div class="reveal">
+      <div class="eng-title" id="galEng"></div>
+      <div class="ko-title" id="galKo"></div>
+    </div>
+    <div class="gallery-grid reveal" id="galleryGrid"></div>
+  </section>
+
+  <!-- 6. 방명록 -->
+  <section class="guestbook" id="sec-guestbook">
+    <div class="reveal">
+      <div class="eng-title" id="gbEng"></div>
+      <div class="ko-title" id="gbKo"></div>
+      <p class="lead" id="gbLead"></p>
+      <div class="gb-list" id="gbList"></div>
+      <button class="btn" id="btnWrite" type="button"><span>방명록 작성하기</span></button>
+      <br>
+      <button class="share" id="btnShare" type="button">사이트 링크 복사하기</button>
+    </div>
+    <div class="foot" id="foot"></div>
+  </section>
+</main>
+
+<!-- 연락하기 모달 -->
+<div class="modal" id="modalContact" role="dialog" aria-modal="true" aria-labelledby="ctTitle">
+  <div class="sheet">
+    <h3 id="ctTitle">연락하기</h3>
+    <div id="contactList"></div>
+    <button class="close-only" data-close type="button">닫기</button>
+  </div>
+</div>
+
+<!-- 방명록 작성 모달 -->
+<div class="modal" id="modalWrite" role="dialog" aria-modal="true" aria-labelledby="gbTitle">
+  <form class="sheet" id="gbForm">
+    <h3 id="gbTitle">방명록 작성하기</h3>
+    <input id="gbName" type="text" maxlength="20" placeholder="이름" required>
+    <textarea id="gbMsg" rows="4" maxlength="300" placeholder="축하 메시지를 남겨주세요." required></textarea>
+    <div class="gb-vis" role="radiogroup" aria-label="공개 설정">
+      <label><input type="radio" name="gbVis" value="private" checked><span>비공개</span></label>
+      <label><input type="radio" name="gbVis" value="public"><span>공개</span></label>
+    </div>
+    <p class="gb-vis-help" id="gbVisHelp"></p>
+    <div class="actions">
+      <button type="button" data-close>취소</button>
+      <button type="submit" class="primary">보내기</button>
+    </div>
+  </form>
+</div>
+
+<!-- 방명록 전송 확인 모달 -->
+<div class="modal" id="modalConfirm" role="alertdialog" aria-modal="true" aria-labelledby="cfMsg">
+  <div class="sheet">
+    <p class="confirm-msg" id="cfMsg"></p>
+    <div class="actions">
+      <button type="button" id="cfNo">아니요</button>
+      <button type="button" class="primary" id="cfYes">예</button>
+    </div>
+  </div>
+</div>
+
+<!-- 갤러리 확대 보기 -->
+<div class="modal lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="사진 크게 보기">
+  <div class="lb-track" id="lbTrack"></div>
+  <div class="lb-count" id="lbCount" aria-live="polite"></div>
+  <button class="lb-close" data-close type="button" aria-label="닫기">×</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/config.js"></script>
+<script src="js/guestbook.js"></script>
+<script src="js/main.js"></script></body>
+</html>
