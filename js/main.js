@@ -97,14 +97,23 @@
 
       const slider = sec.querySelector('.slider');
       const count = sec.querySelector('.slider-count');
+      const loaded = [];
       p.images.forEach((src, i) => {
         const cell = el('div', 's-item');
         const img = el('img'); img.alt = p.title + ' 사진 ' + (i + 1); img.draggable = false;
+        img.addEventListener('load', () => {
+          loaded.push({ i, src: img.src, alt: img.alt }); loaded.sort((a, b) => a.i - b.i);
+        });
         loadImage(img, src, () => {
           img.remove(); cell.classList.add('empty');
           cell.appendChild(el('span', null, String(i + 1).padStart(2, '0')));
         });
         cell.appendChild(img);
+        // 탭하면 크게 보기 (갤러리와 같은 확대 화면)
+        cell.addEventListener('click', () => {
+          const idx = loaded.findIndex(x => x.i === i);
+          if (idx >= 0) showLightbox(loaded, idx);
+        });
         slider.appendChild(cell);
       });
 
@@ -143,14 +152,13 @@
     $('galKo').textContent = g.koTitle;
     const grid = $('galleryGrid');
     const loaded = [];
-    let current = 0;
 
     g.images.forEach((src, i) => {
       const cell = el('button', 'g-item'); cell.type = 'button';
       cell.setAttribute('aria-label', '사진 ' + (i + 1));
       const img = el('img'); img.alt = '갤러리 사진 ' + (i + 1); img.loading = 'lazy';
       img.addEventListener('load', () => {
-        loaded.push({ i, src: img.src }); loaded.sort((a, b) => a.i - b.i);
+        loaded.push({ i, src: img.src, alt: img.alt }); loaded.sort((a, b) => a.i - b.i);
       });
       loadImage(img, src, () => {
         cell.classList.add('empty'); cell.disabled = true; img.remove();
@@ -159,30 +167,36 @@
       cell.appendChild(img);
       cell.addEventListener('click', () => {
         const idx = loaded.findIndex(x => x.i === i);
-        if (idx >= 0) show(idx);
+        if (idx >= 0) showLightbox(loaded, idx);
       });
       grid.appendChild(cell);
     });
+  }
 
-    /* 확대 보기: 가로 스크롤 트랙. 터치 스와이프·트랙패드는 브라우저 기본 스크롤,
-       마우스는 휠/드래그를 한 장씩 넘기기로 변환 */
+  /* ---------- 공통: 사진 확대 보기 (갤러리 + 남편/아내 소개) ----------
+     가로 스크롤 트랙. 터치 스와이프·트랙패드는 브라우저 기본 스크롤,
+     마우스는 휠/드래그를 한 장씩 넘기기로 변환. items = [{ src, alt }] */
+  let showLightbox = () => {};
+  function initLightbox() {
     const lb = $('lightbox'), track = $('lbTrack'), count = $('lbCount');
+    let items = [], current = 0;
     const slideW = () => track.clientWidth || 1;
     const updateCount = () => {
-      current = Math.max(0, Math.min(loaded.length - 1, Math.round(track.scrollLeft / slideW())));
-      count.textContent = (current + 1) + ' / ' + loaded.length;
+      current = Math.max(0, Math.min(items.length - 1, Math.round(track.scrollLeft / slideW())));
+      count.textContent = (current + 1) + ' / ' + items.length;
     };
     const goTo = (idx, smooth) => {
-      idx = Math.max(0, Math.min(loaded.length - 1, idx));
+      idx = Math.max(0, Math.min(items.length - 1, idx));
       track.scrollTo({ left: idx * slideW(), behavior: smooth ? 'smooth' : 'auto' });
     };
 
-    const show = idx => {
-      if (!loaded.length) return;
+    showLightbox = (list, idx) => {
+      if (!list.length) return;
+      items = list.slice();
       track.textContent = '';
-      loaded.forEach(it => {
+      items.forEach(it => {
         const slide = el('div', 'lb-slide');
-        const img = el('img'); img.src = it.src; img.alt = '갤러리 사진 ' + (it.i + 1);
+        const img = el('img'); img.src = it.src; img.alt = it.alt || '';
         img.draggable = false;
         slide.appendChild(img);
         track.appendChild(slide);
@@ -278,6 +292,7 @@
 
   /* ---------- 실행 ---------- */
   initModals();
+  initLightbox();
   renderCover();
   renderInvitation();
   renderFamily();
